@@ -8,7 +8,6 @@ import plotly.graph_objects as go
 import os
 import base64
 import time
-import threading
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -1068,4 +1067,5 @@ def main():
                     st.error(f"❌ Error saat melakukan prediksi: {e}")
 
 if __name__ == "__main__":
+
     main()
