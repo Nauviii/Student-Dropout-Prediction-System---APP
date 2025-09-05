@@ -1067,5 +1067,4 @@ def main():
                     st.error(f"❌ Error saat melakukan prediksi: {e}")
 
 if __name__ == "__main__":
-
     main()
