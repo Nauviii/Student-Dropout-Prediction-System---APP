@@ -521,7 +521,7 @@ def show_welcome_notification_simple():
                     max-width: 350px;
                 ">
                     <h3 style="margin-top:0; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                        🎓 Selamat Datang!
+                         Selamat Datang!
                         <button style="border:none; background:none; font-size:16px; cursor:pointer;" 
                                 onclick="this.parentElement.parentElement.style.display='none'">✖</button>
                     </h3>
@@ -1068,3 +1068,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
