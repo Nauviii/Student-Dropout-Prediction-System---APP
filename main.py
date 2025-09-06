@@ -26,7 +26,6 @@ def get_base64_of_local_image(image_file):
     except FileNotFoundError:
         return ""
 
-
 # Try to load background image
 encoded_image = get_base64_of_local_image("background_1.jpg")
 
@@ -490,9 +489,27 @@ st.markdown(f"""
         background-color: #1565C0;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }}
+
+    /* Styling untuk warning dan info boxes */
+    .recommendation-box {{
+        background-color: #e0f2f7;
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #81d4fa;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-top: 20px;
+        font-size: 1.1em;
+        line-height: 1.6;
+    }}
+    .recommendation-box strong {{
+        color: #01579b;
+    }}
+    .recommendation-box ul {{
+        margin-top: 10px;
+        padding-left: 20px;
+    }}
     </style>
 """, unsafe_allow_html=True)
-
 
 # Inisialisasi session state
 if "notification_dismissed" not in st.session_state:
@@ -559,7 +576,6 @@ with col3:
             del st.session_state.start_time
         st.rerun()
 
-
 # Fungsi untuk membuat section dengan border
 def create_section_box(title, content_html):
     st.markdown(f"""
@@ -568,43 +584,6 @@ def create_section_box(title, content_html):
             {content_html}
         </div>
     """, unsafe_allow_html=True)
-
-# Contoh penggunaan untuk data Anda:
-col1, col2 = st.columns(2)
-
-with col1:
-    # Data Akademik
-    academic_content = """
-        <div class="data-item">📋 <strong>Application Order:</strong> 1</div>
-        <div class="data-item">🎯 <strong>Previous Qualification Grade:</strong> 120.0</div>
-        <div class="data-item">📖 <strong>Admission Grade:</strong> 120.0</div>
-    """
-    create_section_box("📊 Ringkasan Akademik", academic_content)
-    
-    # Data Semester 1
-    semester_content = """
-        <div class="data-item">📑 <strong>Units Enrolled:</strong> 6</div>
-        <div class="data-item">📝 <strong>Units Evaluations:</strong> 6</div>
-        <div class="data-item">✅ <strong>Units Approved:</strong> 6</div> 
-    """
-    create_section_box("📚 Data Semester 1", semester_content)
-
-with col2:
-    # Data Personal
-    personal_content = """
-        <div class="data-item">👨 <strong>Gender:</strong> Male</div>
-        <div class="data-item">🎨 <strong>Course:</strong> Animation and Multimedia Design</div>
-        <div class="data-item">👤 <strong>Age:</strong> 20</div>
-    """
-    create_section_box("👤 Data Personal", personal_content)
-    
-    # Status Keuangan
-    financial_content = """
-        <div class="data-item">💳 <strong>Tuition Fees Up to Date:</strong> No</div>
-        <div class="data-item">💰 <strong>Debtor:</strong> No</div>
-        <div class="data-item">🏠 <strong>Displaced:</strong> No</div>
-    """
-    create_section_box("💰 Status Keuangan", financial_content)
 
 @st.cache_resource
 def load_model():
@@ -633,82 +612,85 @@ def load_encoders():
         st.error(f"❌ Error loading encoders: {e}")
         return None
 
-def create_default_encoders():
-    """Create default label encoders - only used as fallback"""
-    st.warning("🚧 Menggunakan encoder default. Hasil prediksi mungkin tidak akurat!")
-    st.info("📝 Untuk hasil optimal, gunakan encoders.joblib dari data training.")
-    
-    encoders = {}
-    
-    # Default mappings - sebaiknya tidak digunakan untuk produksi
-    categorical_mappings = {
-        'Scholarship_holder': ['No', 'Yes'],
-        'Gender': ['Male', 'Female'],
-        'Tuition_fees_up_to_date': ['No', 'Yes'],
-        'Debtor': ['No', 'Yes'],
-        'Displaced': ['No', 'Yes'],
-        'Course': ['Animation and Multimedia Design',
-                    'Tourism',
-                    'Communication Design',
-                    'Journalism and Communication',
-                    'Social Service (evening attendance)',
-                    'Management (evening attendance)',
-                    'Nursing',
-                    'Social Service',
-                    'Advertising and Marketing Management',
-                    'Basic Education',
-                    'Veterinary Nursing',
-                    'Equinculture',
-                    'Oral Hygiene',
-                    'Management',
-                    'Agronomy',
-                    'Biofuel Production Technologies',
-                    'Informatics Engineering'],
-        'Status': ['Graduate', 'Dropout', 'Enrolled']
-    }
-    
-    for feature, categories in categorical_mappings.items():
-        le = LabelEncoder()
-        le.fit(categories)
-        encoders[feature] = le
-    
-    return encoders
+@st.cache_resource
+def get_model_feature_names():
+    """Get expected feature names from model"""
+    try:
+        model = load_model()
+        if model is not None and hasattr(model, 'feature_names_in_'):
+            return list(model.feature_names_in_)
+        else:
+            # Fallback: return common feature names if model doesn't have feature_names_in_
+            st.warning("⚠️ Model tidak memiliki informasi feature names. Menggunakan feature names default.")
+            return None
+    except Exception as e:
+        st.error(f"Error getting model features: {e}")
+        return None
 
 def get_user_input():
-    """Create input widgets for user data"""
+    """Create input widgets for user data - Updated to match model features"""
     st.sidebar.header("📊 Input Data Mahasiswa")
     
-    # Numerical features
+    # Get expected features from model
+    expected_features = get_model_feature_names()
+    if expected_features:
+        st.sidebar.info(f"Model mengharapkan {len(expected_features)} features")
+        with st.sidebar.expander("Lihat Expected Features"):
+            for i, feature in enumerate(expected_features, 1):
+                st.write(f"{i}. {feature}")
+    
+    # Create input dictionary with all possible features
+    user_input = {}
+    
+    # Numerical features - sesuaikan dengan error message
     st.sidebar.subheader("Data Numerik")
-    application_order = st.sidebar.number_input("Application Order", min_value=0, max_value=10, value=1, help="Urutan aplikasi pendaftaran")
-    prev_qual_grade = st.sidebar.slider("Previous Qualification Grade", 0.0, 200.0, 120.0, 0.1, help="Nilai kualifikasi sebelumnya")
-    admission_grade = st.sidebar.slider("Admission Grade", 0.0, 200.0, 120.0, 0.1, help="Nilai penerimaan")
+    
+    # Basic info
+    user_input['Age'] = st.sidebar.number_input("Age", min_value=17, max_value=70, value=20, help="Usia mahasiswa")
+    user_input['Application_order'] = st.sidebar.number_input("Application Order", min_value=0, max_value=10, value=1, help="Urutan aplikasi pendaftaran")
+    
+    # Grades
+    user_input['Previous_qualification_grade'] = st.sidebar.slider("Previous Qualification Grade", 0.0, 200.0, 120.0, 0.1, help="Nilai kualifikasi sebelumnya")
+    user_input['Admission_grade'] = st.sidebar.slider("Admission Grade", 0.0, 200.0, 120.0, 0.1, help="Nilai penerimaan")
     
     # Semester 1 units
     st.sidebar.subheader("Data Semester 1")
-    units_enrolled = st.sidebar.number_input("Units Enrolled (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang diambil")
-    units_evaluations = st.sidebar.number_input("Units Evaluations (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang dievaluasi")
-    units_approved = st.sidebar.number_input("Units Approved (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang lulus")
-    units_grade = st.sidebar.slider("Units Grade (Sem 1)", 0.0, 20.0, 12.0, 0.1, help="Rata-rata nilai semester 1")
+    user_input['Curricular_units_1st_sem_enrolled'] = st.sidebar.number_input("Units Enrolled (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang diambil")
+    user_input['Curricular_units_1st_sem_evaluations'] = st.sidebar.number_input("Units Evaluations (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang dievaluasi")
+    user_input['Curricular_units_1st_sem_approved'] = st.sidebar.number_input("Units Approved (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang lulus")
+    user_input['Curricular_units_1st_sem_grade'] = st.sidebar.slider("Units Grade (Sem 1)", 0.0, 20.0, 12.0, 0.1, help="Rata-rata nilai semester 1")
     
-    age = st.sidebar.number_input("Age", min_value=17, max_value=70, value=20, help="Usia mahasiswa")
+    # Additional features that might be expected by model
+    st.sidebar.subheader("Data Tambahan")
     
-    # Validation for semester units
-    if units_evaluations > units_enrolled:
-        st.sidebar.warning("⚠️ Units Evaluations tidak boleh lebih besar dari Units Enrolled")
+    # Business/Travel related (if model expects these)
+    user_input['BusinessTravel'] = st.sidebar.selectbox("Business Travel", ['No', 'Yes'], help="Apakah sering melakukan perjalanan bisnis?")
     
-    if units_approved > units_evaluations:
-        st.sidebar.warning("⚠️ Units Approved tidak boleh lebih besar dari Units Evaluations")
+    # Department
+    user_input['Department'] = st.sidebar.selectbox("Department", [
+        'Engineering', 'Business', 'Education', 'Arts', 'Science', 'Medicine', 'Other'
+    ], help="Departemen/Fakultas")
     
-    # Categorical features
+    # Distance from home
+    user_input['DistanceFromHome'] = st.sidebar.slider("Distance From Home (km)", 0, 100, 10, 1, help="Jarak dari rumah dalam km")
+    
+    # Environment Satisfaction
+    user_input['EnvironmentSatisfaction'] = st.sidebar.slider("Environment Satisfaction", 1, 5, 3, 1, help="Tingkat kepuasan lingkungan (1-5)")
+    
+    # Job Role
+    user_input['JobRole'] = st.sidebar.selectbox("Job Role", [
+        'Student', 'Part-time Worker', 'Intern', 'Full-time Worker', 'Unemployed'
+    ], help="Peran pekerjaan saat ini")
+    
+    # Categorical features - existing ones
     st.sidebar.subheader("Data Kategorikal")
-    scholarship = st.sidebar.selectbox("Scholarship Holder", ['No', 'Yes'], help="Apakah penerima beasiswa?")
-    gender = st.sidebar.selectbox("Gender", ['Male', 'Female'], help="Jenis kelamin")
-    tuition_updated = st.sidebar.selectbox("Tuition Fees Up to Date", ['No', 'Yes'], help="Apakah biaya kuliah up to date?")
-    debtor = st.sidebar.selectbox("Debtor", ['No', 'Yes'], help="Apakah memiliki hutang?")
-    displaced = st.sidebar.selectbox("Displaced", ['No', 'Yes'], help="Apakah mengalami perpindahan tempat tinggal?")
+    user_input['Scholarship_holder'] = st.sidebar.selectbox("Scholarship Holder", ['No', 'Yes'], help="Apakah penerima beasiswa?")
+    user_input['Gender'] = st.sidebar.selectbox("Gender", ['Male', 'Female'], help="Jenis kelamin")
+    user_input['Tuition_fees_up_to_date'] = st.sidebar.selectbox("Tuition Fees Up to Date", ['No', 'Yes'], help="Apakah biaya kuliah up to date?")
+    user_input['Debtor'] = st.sidebar.selectbox("Debtor", ['No', 'Yes'], help="Apakah memiliki hutang?")
+    user_input['Displaced'] = st.sidebar.selectbox("Displaced", ['No', 'Yes'], help="Apakah mengalami perpindahan tempat tinggal?")
     
-    course = st.sidebar.selectbox("Course", [
+    user_input['Course'] = st.sidebar.selectbox("Course", [
         'Animation and Multimedia Design',
         'Tourism',
         'Communication Design',
@@ -728,49 +710,77 @@ def get_user_input():
         'Informatics Engineering'
     ], help="Program studi yang diambil")
     
-    return {
-        'Application_order': application_order,
-        'Previous_qualification_grade': prev_qual_grade,
-        'Admission_grade': admission_grade,
-        'Curricular_units_1st_sem_enrolled': units_enrolled,
-        'Curricular_units_1st_sem_evaluations': units_evaluations,
-        'Curricular_units_1st_sem_approved': units_approved,
-        'Curricular_units_1st_sem_grade': units_grade,
-        'Age': age,
-        'Scholarship_holder': scholarship,
-        'Gender': gender,
-        'Tuition_fees_up_to_date': tuition_updated,
-        'Debtor': debtor,
-        'Displaced': displaced,
-        'Course': course
-    }
+    # Validation for semester units
+    if user_input['Curricular_units_1st_sem_evaluations'] > user_input['Curricular_units_1st_sem_enrolled']:
+        st.sidebar.warning("⚠️ Units Evaluations tidak boleh lebih besar dari Units Enrolled")
+    
+    if user_input['Curricular_units_1st_sem_approved'] > user_input['Curricular_units_1st_sem_evaluations']:
+        st.sidebar.warning("⚠️ Units Approved tidak boleh lebih besar dari Units Evaluations")
+    
+    return user_input
 
-def preprocess_input(user_input, encoders):
-    """Preprocess user input for prediction"""
+def preprocess_input(user_input, encoders, expected_features=None):
+    """Preprocess user input for prediction - Updated to handle feature matching"""
     try:
         # Convert to DataFrame
         df = pd.DataFrame([user_input])
         
+        # Get expected features if available
+        if expected_features is None:
+            expected_features = get_model_feature_names()
+        
+        if expected_features:
+            # Only keep features that are expected by the model
+            missing_features = []
+            available_features = []
+            
+            for feature in expected_features:
+                if feature in df.columns:
+                    available_features.append(feature)
+                else:
+                    missing_features.append(feature)
+                    # Add missing feature with default value
+                    if feature.endswith('_encoded') or feature in ['Gender', 'Course', 'Department', 'JobRole', 'BusinessTravel']:
+                        df[feature] = 0  # Default encoded value
+                    else:
+                        df[feature] = 0  # Default numeric value
+            
+            # Show info about feature matching
+            if missing_features:
+                st.warning(f"⚠️ Model mengharapkan {len(missing_features)} features yang tidak tersedia dalam input form.")
+                with st.expander("Detail Missing Features"):
+                    st.write("Missing features (akan diisi dengan nilai default):")
+                    for feature in missing_features:
+                        st.write(f"- {feature}")
+            
+            if available_features:
+                st.info(f"✅ {len(available_features)} features tersedia dari input form")
+        
         # Encode categorical features
         categorical_features = ['Scholarship_holder', 'Gender', 'Tuition_fees_up_to_date', 
-                               'Debtor', 'Displaced', 'Course']
+                               'Debtor', 'Displaced', 'Course', 'Department', 'JobRole', 'BusinessTravel']
         
         for feature in categorical_features:
-            if feature in encoders:
+            if feature in df.columns and feature in encoders:
                 try:
                     # Check if value exists in encoder classes
                     if hasattr(encoders[feature], 'classes_'):
                         original_value = df[feature].iloc[0]
                         if original_value not in encoders[feature].classes_:
-                            st.error(f"Nilai '{original_value}' untuk fitur '{feature}' tidak dikenali oleh encoder.")
-                            st.info(f"Nilai yang valid untuk '{feature}': {list(encoders[feature].classes_)}")
-                            return None
+                            st.warning(f"Nilai '{original_value}' untuk fitur '{feature}' tidak dikenali. Menggunakan nilai default.")
+                            # Use the first class as default
+                            df[feature] = encoders[feature].classes_[0]
                     
                     df[feature] = encoders[feature].transform(df[feature])
                     
                 except ValueError as e:
-                    st.error(f"Error encoding {feature}: {e}")
-                    return None
+                    st.warning(f"Warning encoding {feature}: {e}. Menggunakan nilai default.")
+                    df[feature] = 0
+        
+        # Ensure all expected features are present and in correct order
+        if expected_features:
+            # Reorder columns to match expected features
+            df = df.reindex(columns=expected_features, fill_value=0)
         
         return df
         
@@ -782,8 +792,14 @@ def display_prediction_result(prediction, prediction_proba, encoders):
     """Display prediction results with styling"""
     try:
         # Decode prediction
-        status_labels = encoders['Status'].classes_
-        predicted_status = status_labels[prediction[0]]
+        if 'Status' in encoders:
+            status_labels = encoders['Status'].classes_
+            predicted_status = status_labels[prediction[0]]
+        else:
+            # Fallback if Status encoder not available
+            status_mapping = {0: 'Dropout', 1: 'Enrolled', 2: 'Graduate'}
+            predicted_status = status_mapping.get(prediction[0], 'Unknown')
+        
         confidence = np.max(prediction_proba) * 100
         
         # Display result with color coding
@@ -824,14 +840,19 @@ def display_prediction_result(prediction, prediction_proba, encoders):
 def create_probability_chart(prediction_proba, encoders):
     """Create a more engaging and informative probability bar chart."""
     try:
-        status_labels = encoders['Status'].classes_
+        if 'Status' in encoders:
+            status_labels = encoders['Status'].classes_
+        else:
+            # Fallback labels
+            status_labels = ['Dropout', 'Enrolled', 'Graduate']
+            
         probabilities = prediction_proba[0] * 100
 
         # Create a DataFrame for better data handling with Plotly Express
         df_probs = pd.DataFrame({
-            'Status': status_labels,
+            'Status': status_labels[:len(probabilities)],  # Ensure matching length
             'Probabilitas': probabilities
-        }).sort_values('Probabilitas', ascending=False) # Sort to highlight the highest probability
+        }).sort_values('Probabilitas', ascending=False)
 
         # Assign colors based on status
         color_map = {
@@ -845,23 +866,22 @@ def create_probability_chart(prediction_proba, encoders):
             df_probs,
             x='Status',
             y='Probabilitas',
-            color='Status', # Use status to color the bars
-            color_discrete_map=color_map, # Apply the custom color map
-            text='Probabilitas', # Display probability text on the bars
-            title='<b>Probabilitas Prediksi Status Mahasiswa</b>', # Make title bold
+            color='Status',
+            color_discrete_map=color_map,
+            text='Probabilitas',
+            title='<b>Probabilitas Prediksi Status Mahasiswa</b>',
         )
 
         # Update the layout for improved readability
         fig.update_layout(
             title_font_size=24,
-            xaxis_title=None, # Remove x-axis title as it's self-explanatory
+            xaxis_title=None,
             yaxis_title='Probabilitas (%)',
             font=dict(
                 family="Arial, sans-serif",
                 size=14,
                 color="black"
             ),
-            # Add a clear grid and cleaner background
             plot_bgcolor='rgba(255,255,255,0.8)',
             paper_bgcolor='rgba(255,255,255,0.8)',
             xaxis=dict(
@@ -873,7 +893,6 @@ def create_probability_chart(prediction_proba, encoders):
                 gridcolor='#e0e0e0',
                 tickfont=dict(color='black', size=14)
             ),
-            # Add tooltips for more information on hover
             hovermode="x unified",
         )
 
@@ -889,83 +908,78 @@ def create_probability_chart(prediction_proba, encoders):
     except Exception as e:
         st.error(f"Error creating the probability chart: {str(e)}")
         return None
-    
-st.markdown("""
-    <style>
-    /* Styling for the light blue recommendation box */
-    .recommendation-box {
-        background-color: #e0f2f7; /* Light blue color */
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #81d4fa;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        margin-top: 20px;
-        font-size: 1.1em;
-        line-height: 1.6;
-    }
-    .recommendation-box strong {
-        color: #01579b; /* Darker blue for emphasis */
-    }
-    .recommendation-box ul {
-        margin-top: 10px;
-        padding-left: 20px;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 def main():
     """Main application function"""
+    # Sample data display
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Data Akademik
+        academic_content = """
+            <div class="data-item">📋 <strong>Application Order:</strong> 1</div>
+            <div class="data-item">🎯 <strong>Previous Qualification Grade:</strong> 120.0</div>
+            <div class="data-item">📖 <strong>Admission Grade:</strong> 120.0</div>
+        """
+        create_section_box("📊 Ringkasan Akademik", academic_content)
+        
+        # Data Semester 1
+        semester_content = """
+            <div class="data-item">📑 <strong>Units Enrolled:</strong> 6</div>
+            <div class="data-item">📝 <strong>Units Evaluations:</strong> 6</div>
+            <div class="data-item">✅ <strong>Units Approved:</strong> 6</div> 
+        """
+        create_section_box("📚 Data Semester 1", semester_content)
+
+    with col2:
+        # Data Personal
+        personal_content = """
+            <div class="data-item">👨 <strong>Gender:</strong> Male</div>
+            <div class="data-item">🎨 <strong>Course:</strong> Animation and Multimedia Design</div>
+            <div class="data-item">👤 <strong>Age:</strong> 20</div>
+        """
+        create_section_box("👤 Data Personal", personal_content)
+        
+        # Status Keuangan
+        financial_content = """
+            <div class="data-item">💳 <strong>Tuition Fees Up to Date:</strong> No</div>
+            <div class="data-item">💰 <strong>Debtor:</strong> No</div>
+            <div class="data-item">🏠 <strong>Displaced:</strong> No</div>
+        """
+        create_section_box("💰 Status Keuangan", financial_content)
+    
     st.markdown("---")
     
     # Load model and encoders
     model = load_model()
     encoders = load_encoders()
+    expected_features = get_model_feature_names()
     
-    # Check if both are loaded successfully
-    if model is None or encoders is None:
-        st.error("❌ Aplikasi tidak dapat berjalan karena model atau encoders gagal dimuat.")
+    # Check if model is loaded successfully
+    if model is None:
+        st.error("❌ Aplikasi tidak dapat berjalan karena model gagal dimuat.")
         st.markdown("""
         ### 📋 Cara Mengatasi:
         
         1. **Pastikan file tersedia**:
             - `model.joblib` (model yang sudah ditraining)
-            - `encoders.joblib` (encoder dari data training)
         
-        2. **Cara membuat encoders.joblib**:
-        ```python
-        # Saat training model
-        categorical_features = ['Scholarship_holder', 'Gender', 'Tuition_fees_up_to_date', 
-                               'Debtor', 'Displaced', 'Course', 'Status']
-        
-        # Encode dan simpan
-        encoders = {}
-        for feature in categorical_features:
-            le = LabelEncoder()
-            df[feature] = le.fit_transform(df[feature])
-            encoders[feature] = le
-        
-        joblib.dump(encoders, 'encoders.joblib')
-        ```
-        
-        3. **Restart aplikasi** setelah file tersedia
+        2. **Restart aplikasi** setelah file tersedia
         """)
         
         # Show file status
         st.subheader("📁 Status File:")
-        col1, col2 = st.columns(2)
-        with col1:
-            if os.path.exists('model.joblib'):
-                st.success("✅ model.joblib tersedia")
-            else:
-                st.error("❌ model.joblib tidak ditemukan")
-        
-        with col2:
-            if os.path.exists('encoders.joblib'):
-                st.success("✅ encoders.joblib tersedia")
-            else:
-                st.error("❌ encoders.joblib tidak ditemukan")
+        if os.path.exists('model.joblib'):
+            st.success("✅ model.joblib tersedia")
+        else:
+            st.error("❌ model.joblib tidak ditemukan")
         
         st.stop()
+    
+    # Handle missing encoders
+    if encoders is None:
+        st.warning("⚠️ Encoders tidak tersedia. Menggunakan fallback encoding.")
+        encoders = {}
     
     # Get user input
     user_input = get_user_input()
@@ -975,7 +989,7 @@ def main():
         
         with st.spinner("🔄 Memproses prediksi..."):
             # Preprocess input
-            processed_input = preprocess_input(user_input, encoders)
+            processed_input = preprocess_input(user_input, encoders, expected_features)
             
             if processed_input is not None:
                 # Make prediction
@@ -1010,13 +1024,18 @@ def main():
                         with col_insight2:
                             # Show top probabilities
                             probs = prediction_proba[0]
-                            status_labels = encoders['Status'].classes_
+                            if 'Status' in encoders:
+                                status_labels = encoders['Status'].classes_
+                            else:
+                                status_labels = ['Dropout', 'Enrolled', 'Graduate']
+                                
                             sorted_indices = np.argsort(probs)[::-1]
                             
                             st.write("**Top Probabilitas:**")
-                            for i in range(min(len(status_labels), 3)):
+                            for i in range(min(len(status_labels), len(probs))):
                                 idx = sorted_indices[i]
-                                st.write(f"{i+1}. {status_labels[idx]}: {probs[idx]*100:.1f}%")
+                                if idx < len(status_labels):
+                                    st.write(f"{i+1}. {status_labels[idx]}: {probs[idx]*100:.1f}%")
                         
                         # Show probability chart
                         fig = create_probability_chart(prediction_proba, encoders)
@@ -1065,7 +1084,10 @@ def main():
                             
                 except Exception as e:
                     st.error(f"❌ Error saat melakukan prediksi: {e}")
+                    st.info("💡 Tips troubleshooting:")
+                    st.write("- Pastikan model kompatibel dengan input features")
+                    st.write("- Periksa format dan tipe data input")
+                    st.write("- Pastikan encoders sesuai dengan model")
 
 if __name__ == "__main__":
     main()
-
