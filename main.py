@@ -916,37 +916,33 @@ def main():
 
     with col1:
         # Data Akademik
-        academic_content = """
-            <div class="data-item">📋 <strong>Application Order:</strong> 1</div>
-            <div class="data-item">🎯 <strong>Previous Qualification Grade:</strong> 120.0</div>
-            <div class="data-item">📖 <strong>Admission Grade:</strong> 120.0</div>
-        """
-        create_section_box("📊 Ringkasan Akademik", academic_content)
+        with st.container():
+            st.markdown("### 📊 Ringkasan Akademik")
+            st.markdown("📋 **Application Order:** 1")
+            st.markdown("🎯 **Previous Qualification Grade:** 120.0")
+            st.markdown("📖 **Admission Grade:** 120.0")
         
         # Data Semester 1
-        semester_content = """
-            <div class="data-item">📑 <strong>Units Enrolled:</strong> 6</div>
-            <div class="data-item">📝 <strong>Units Evaluations:</strong> 6</div>
-            <div class="data-item">✅ <strong>Units Approved:</strong> 6</div> 
-        """
-        create_section_box("📚 Data Semester 1", semester_content)
+        with st.container():
+            st.markdown("### 📚 Data Semester 1")
+            st.markdown("📑 **Units Enrolled:** 6")
+            st.markdown("📝 **Units Evaluations:** 6")
+            st.markdown("✅ **Units Approved:** 6")
 
     with col2:
         # Data Personal
-        personal_content = """
-            <div class="data-item">👨 <strong>Gender:</strong> Male</div>
-            <div class="data-item">🎨 <strong>Course:</strong> Animation and Multimedia Design</div>
-            <div class="data-item">👤 <strong>Age:</strong> 20</div>
-        """
-        create_section_box("👤 Data Personal", personal_content)
+        with st.container():
+            st.markdown("### 👤 Data Personal")
+            st.markdown("👨 **Gender:** Male")
+            st.markdown("🎨 **Course:** Animation and Multimedia Design")
+            st.markdown("👤 **Age:** 20")
         
         # Status Keuangan
-        financial_content = """
-            <div class="data-item">💳 <strong>Tuition Fees Up to Date:</strong> No</div>
-            <div class="data-item">💰 <strong>Debtor:</strong> No</div>
-            <div class="data-item">🏠 <strong>Displaced:</strong> No</div>
-        """
-        create_section_box("💰 Status Keuangan", financial_content)
+        with st.container():
+            st.markdown("### 💰 Status Keuangan")
+            st.markdown("💳 **Tuition Fees Up to Date:** No")
+            st.markdown("💰 **Debtor:** No")
+            st.markdown("🏠 **Displaced:** No")
     
     st.markdown("---")
     
