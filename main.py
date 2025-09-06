@@ -660,28 +660,6 @@ def get_user_input():
     user_input['Curricular_units_1st_sem_approved'] = st.sidebar.number_input("Units Approved (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang lulus")
     user_input['Curricular_units_1st_sem_grade'] = st.sidebar.slider("Units Grade (Sem 1)", 0.0, 20.0, 12.0, 0.1, help="Rata-rata nilai semester 1")
     
-    # Additional features that might be expected by model
-    st.sidebar.subheader("Data Tambahan")
-    
-    # Business/Travel related (if model expects these)
-    user_input['BusinessTravel'] = st.sidebar.selectbox("Business Travel", ['No', 'Yes'], help="Apakah sering melakukan perjalanan bisnis?")
-    
-    # Department
-    user_input['Department'] = st.sidebar.selectbox("Department", [
-        'Engineering', 'Business', 'Education', 'Arts', 'Science', 'Medicine', 'Other'
-    ], help="Departemen/Fakultas")
-    
-    # Distance from home
-    user_input['DistanceFromHome'] = st.sidebar.slider("Distance From Home (km)", 0, 100, 10, 1, help="Jarak dari rumah dalam km")
-    
-    # Environment Satisfaction
-    user_input['EnvironmentSatisfaction'] = st.sidebar.slider("Environment Satisfaction", 1, 5, 3, 1, help="Tingkat kepuasan lingkungan (1-5)")
-    
-    # Job Role
-    user_input['JobRole'] = st.sidebar.selectbox("Job Role", [
-        'Student', 'Part-time Worker', 'Intern', 'Full-time Worker', 'Unemployed'
-    ], help="Peran pekerjaan saat ini")
-    
     # Categorical features - existing ones
     st.sidebar.subheader("Data Kategorikal")
     user_input['Scholarship_holder'] = st.sidebar.selectbox("Scholarship Holder", ['No', 'Yes'], help="Apakah penerima beasiswa?")
@@ -1099,3 +1077,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
