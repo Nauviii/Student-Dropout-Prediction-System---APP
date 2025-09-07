@@ -27,7 +27,7 @@ def get_base64_of_local_image(image_file):
         return ""
 
 # Try to load background image
-encoded_image = get_base64_of_local_image("background_1.jpg")
+encoded_image = get_base64_of_local_image("model/background.jpg")
 
 # Enhanced CSS dengan notifikasi
 background_style = f'background-image: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url("data:image/jpg;base64,{encoded_image}");' if encoded_image else 'background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);'
@@ -589,7 +589,7 @@ def create_section_box(title, content_html):
 def load_model():
     """Load the trained model"""
     try:
-        model = joblib.load('model.joblib')
+        model = joblib.load('model/model_xgb_final.joblib')
         return model
     except FileNotFoundError:
         st.error("Model file 'model.joblib' tidak ditemukan. Pastikan file model ada di direktori yang sama.")
@@ -602,7 +602,7 @@ def load_model():
 def load_encoders():
     """Load the trained encoders"""
     try:
-        encoders = joblib.load('encoders.joblib')
+        encoders = joblib.load('model/encoders.joblib')
         return encoders
     except FileNotFoundError:
         st.error("❌ File 'encoders.joblib' tidak ditemukan. Pastikan file encoder ada di direktori yang sama.")
@@ -612,41 +612,18 @@ def load_encoders():
         st.error(f"❌ Error loading encoders: {e}")
         return None
 
-@st.cache_resource
-def get_model_feature_names():
-    """Get expected feature names from model"""
-    try:
-        model = load_model()
-        if model is not None and hasattr(model, 'feature_names_in_'):
-            return list(model.feature_names_in_)
-        else:
-            # Fallback: return common feature names if model doesn't have feature_names_in_
-            st.warning("⚠️ Model tidak memiliki informasi feature names. Menggunakan feature names default.")
-            return None
-    except Exception as e:
-        st.error(f"Error getting model features: {e}")
-        return None
-
 def get_user_input():
-    """Create input widgets for user data - Updated to match model features"""
+    """Create input widgets for user data"""
     st.sidebar.header("📊 Input Data Mahasiswa")
     
-    # Get expected features from model
-    expected_features = get_model_feature_names()
-    if expected_features:
-        st.sidebar.info(f"Model mengharapkan {len(expected_features)} features")
-        with st.sidebar.expander("Lihat Expected Features"):
-            for i, feature in enumerate(expected_features, 1):
-                st.write(f"{i}. {feature}")
-    
-    # Create input dictionary with all possible features
+    # Create input dictionary
     user_input = {}
     
-    # Numerical features - sesuaikan dengan error message
+    # Numerical features
     st.sidebar.subheader("Data Numerik")
     
     # Basic info
-    user_input['Age'] = st.sidebar.number_input("Age", min_value=17, max_value=70, value=20, help="Usia mahasiswa")
+    user_input['Age'] = st.sidebar.number_input("Age at Enrollment", min_value=17, max_value=70, value=20, help="Usia mahasiswa")
     user_input['Application_order'] = st.sidebar.number_input("Application Order", min_value=0, max_value=10, value=1, help="Urutan aplikasi pendaftaran")
     
     # Grades
@@ -660,7 +637,7 @@ def get_user_input():
     user_input['Curricular_units_1st_sem_approved'] = st.sidebar.number_input("Units Approved (Sem 1)", min_value=0, max_value=30, value=6, help="Jumlah mata kuliah yang lulus")
     user_input['Curricular_units_1st_sem_grade'] = st.sidebar.slider("Units Grade (Sem 1)", 0.0, 20.0, 12.0, 0.1, help="Rata-rata nilai semester 1")
     
-    # Categorical features - existing ones
+    # Categorical features
     st.sidebar.subheader("Data Kategorikal")
     user_input['Scholarship_holder'] = st.sidebar.selectbox("Scholarship Holder", ['No', 'Yes'], help="Apakah penerima beasiswa?")
     user_input['Gender'] = st.sidebar.selectbox("Gender", ['Male', 'Female'], help="Jenis kelamin")
@@ -697,70 +674,34 @@ def get_user_input():
     
     return user_input
 
-def preprocess_input(user_input, encoders, expected_features=None):
-    """Preprocess user input for prediction - Updated to handle feature matching"""
+def preprocess_input(user_input, model, encoders):
+    """Preprocess user input for prediction"""
     try:
-        # Convert to DataFrame
+        # Dapatkan nama fitur dari model
+        expected_features = model.feature_names_in_
+        
+        # Buat DataFrame dari input pengguna
         df = pd.DataFrame([user_input])
         
-        # Get expected features if available
-        if expected_features is None:
-            expected_features = get_model_feature_names()
-        
-        if expected_features:
-            # Only keep features that are expected by the model
-            missing_features = []
-            available_features = []
-            
-            for feature in expected_features:
-                if feature in df.columns:
-                    available_features.append(feature)
-                else:
-                    missing_features.append(feature)
-                    # Add missing feature with default value
-                    if feature.endswith('_encoded') or feature in ['Gender', 'Course', 'Department', 'JobRole', 'BusinessTravel']:
-                        df[feature] = 0  # Default encoded value
-                    else:
-                        df[feature] = 0  # Default numeric value
-            
-            # Show info about feature matching
-            if missing_features:
-                st.warning(f"⚠️ Model mengharapkan {len(missing_features)} features yang tidak tersedia dalam input form.")
-                with st.expander("Detail Missing Features"):
-                    st.write("Missing features (akan diisi dengan nilai default):")
-                    for feature in missing_features:
-                        st.write(f"- {feature}")
-            
-            if available_features:
-                st.info(f"✅ {len(available_features)} features tersedia dari input form")
+        # Ambil hanya fitur yang diharapkan
+        df = df[expected_features]
         
         # Encode categorical features
         categorical_features = ['Scholarship_holder', 'Gender', 'Tuition_fees_up_to_date', 
-                               'Debtor', 'Displaced', 'Course', 'Department', 'JobRole', 'BusinessTravel']
+                                'Debtor', 'Displaced', 'Course']
         
         for feature in categorical_features:
             if feature in df.columns and feature in encoders:
                 try:
-                    # Check if value exists in encoder classes
-                    if hasattr(encoders[feature], 'classes_'):
-                        original_value = df[feature].iloc[0]
-                        if original_value not in encoders[feature].classes_:
-                            st.warning(f"Nilai '{original_value}' untuk fitur '{feature}' tidak dikenali. Menggunakan nilai default.")
-                            # Use the first class as default
-                            df[feature] = encoders[feature].classes_[0]
-                    
                     df[feature] = encoders[feature].transform(df[feature])
-                    
                 except ValueError as e:
                     st.warning(f"Warning encoding {feature}: {e}. Menggunakan nilai default.")
-                    df[feature] = 0
-        
-        # Ensure all expected features are present and in correct order
-        if expected_features:
-            # Reorder columns to match expected features
-            df = df.reindex(columns=expected_features, fill_value=0)
+                    df[feature] = -1 # Gunakan nilai yang tidak mungkin ada
         
         return df
+    except Exception as e:
+        st.error(f"Error dalam preprocessing: {str(e)}")
+        return None
         
     except Exception as e:
         st.error(f"Error dalam preprocessing: {str(e)}")
@@ -939,7 +880,6 @@ def main():
     # Load model and encoders
     model = load_model()
     encoders = load_encoders()
-    expected_features = get_model_feature_names()
     
     # Check if model is loaded successfully
     if model is None:
@@ -975,7 +915,7 @@ def main():
         
         with st.spinner("🔄 Memproses prediksi..."):
             # Preprocess input
-            processed_input = preprocess_input(user_input, encoders, expected_features)
+            processed_input = preprocess_input(user_input, model, encoders)
             
             if processed_input is not None:
                 # Make prediction
@@ -1077,4 +1017,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
